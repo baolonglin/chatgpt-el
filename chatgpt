@@ -71,31 +71,33 @@ async function get_text(page, elem) {
     return text;
 }
 
-// FIXME: Code fragments in Markdown format will be truncated.
-function display_diff(last_reply, reply) {
-    const last_lines = last_reply.split('\n');
+
+function output_new_line(from_line, reply) {
     const lines = reply.split('\n');
-    // The last line is not displayed since it may change later.
-    for (let n = last_lines.length - 2; n < lines.length - 2; n++)
-        console.log(lines[n]);
+    let i = from_line;
+    // buffering 2 lines
+    for (; i < lines.length - 2; i++) {
+        console.log(lines[i]);
+    }
+    return i;
 }
 
 async function send_query(page, query) {
     debug("## sending\n");
     if (FORM_SELECTOR.startsWith('textarea')) {
-	await page.type(FORM_SELECTOR, query);
+	    await page.type(FORM_SELECTOR, query);
     } else {
-	await page.$eval(FORM_SELECTOR, (el, str) => el.innerText = str, query);
+	    await page.$eval(FORM_SELECTOR, (el, str) => el.innerText = str, query);
     }
     let prev_elems;
     if (BUTTON_SELECTOR == 'press_enter') {
-	prev_elems = await page.$$(REPLY_SELECTOR);
-	await page.keyboard.press('Enter');
+	    prev_elems = await page.$$(REPLY_SELECTOR);
+	    await page.keyboard.press('Enter');
     } else {
-	const button = await page.waitForSelector(BUTTON_SELECTOR);
-	// Record all already-displayed reples.
-	prev_elems = await page.$$(REPLY_SELECTOR);
-	await button.click();
+	    const button = await page.waitForSelector(BUTTON_SELECTOR);
+	    // Record all already-displayed reples.
+	    prev_elems = await page.$$(REPLY_SELECTOR);
+	    await button.click();
     }
 
     // Wait until reply starts displaying.
@@ -111,22 +113,23 @@ async function send_query(page, query) {
 
     debug("## waiting initial\n");
     let elem;
-    let last_reply = '';
-    let nretires = 0;
+    let last_reply_len = 0;
+    let nretries = 0;
+    let from_line = 0;
     while (true) {
         // NOTE: This code seems redundant but required for ChatGPT.
         const elems = await page.$$(REPLY_SELECTOR);
         elem = elems[elems.length - 1];
         const reply = await get_text(page, elem);
         if (reply.length > 0) {
-            display_diff(last_reply, reply);
-            last_reply = reply;
+            from_line = output_new_line(from_line, reply);
+            last_reply_len = reply.length;
             break;
         }
         await sleep(DELAY);
-        nretires++;
+        nretries++;
         // Wait 10 seconds for the initial reply at most.
-        if (nretires > 10000 / DELAY) {
+        if (nretries > 10000 / DELAY) {
             console.log(`No initial reply from ${ENGINE}.`);
             return;
         }
@@ -135,12 +138,12 @@ async function send_query(page, query) {
     // Fetch the remaining reply.
     debug("## streaming\n");
     let reply;
-    let nretries = 0;
+    nretries = 0;
     while (true) {
         reply = await get_text(page, elem);
-        if (reply.length > last_reply.length) { // Any addition?
-            display_diff(last_reply, reply);
-            last_reply = reply;
+        if (reply.length > last_reply_len) {
+            from_line = output_new_line(from_line, reply)
+            last_reply_len = reply.length;
             nretries = 0;
         } else {
             nretries++;
@@ -150,12 +153,12 @@ async function send_query(page, query) {
         }
         await sleep(DELAY);
     }
-    // Display the last line.
+
+    // Display the 2 last line.
+    reply += "\n\n\n"
+    output_new_line(from_line, reply);
+
     debug("## closed\n");
-    const lines = reply.split('\n');
-    // FIXME: This code may fail for a single-reply.
-    console.log(lines[lines.length - 2]);
-    console.log(lines[lines.length - 1]);
 }
 
 function config_gemini() {

@@ -19,6 +19,7 @@
 ;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 (defvar chatgpt-prog "~/src/chatgpt-el/chatgpt")
+(defvar chatgpt-log-path (expand-file-name "var/chatgpt-el" user-emacs-directory))
 (defvar chatgpt-engine "ChatGPT")
 (defvar chatgpt-engines-alist '((?1 . "ChatGPT")
 				(?2 . "Gemini")
@@ -26,13 +27,18 @@
 				(?4 . "DeepSeek")))
 
 (defvar chatgpt-prefix-alist
-  '((?w . "Explain the following in Japanese with definition, pros, cons, examples, and issues:")
-    (?s . "Summarize the following in a plain Japanese:")
-    (?j . "Translate the following in Japanese in a plain academic writing style:")
+  '((?w . "Can you explain the following part of the code in detail, specifically what's the purpose of this section, how does it work step-by-step and are there any potential issues or limitations with this approach:")
+    (?s . "Summarize the following in a plain Chinse:")
+    (?j . "Translate the following in Chinse in a plain academic writing style:")
     (?e . "Translate the following in English in a plain academic writing style:")
     (?p . "Proofread following text:")
     (?P . "以下の文章の誤りを直して、変更点の一覧を出力して:")
-    (?r . "Rewrite the following in a plain academic writing style:")
+    (?r . "Please review the following code, consider 1. Code quality and adherence to best practices
+2. Potential bugs or edge cases
+3. Performance optimizations
+4. Readability and maintainability
+5. Any security concerns
+Suggest improvements and explain your reasoning for each suggestion:")
     (?R . "###以下の文章を、1章の内容に合うように修正して。用語を1章のものに統一して。論理がわかりづらい箇所は明快な論理に書き替えて。平易で学術的な表現の英語にして。LaTeXのコマンドはそのままにして。\citeの前の空白はすべて~に変更して。###")
     (?d . "Write docstring for the following code:")))
 
@@ -146,7 +152,7 @@
 
 (defun chatgpt--read-prefix ()
   (let* ((ch (read-char
-	      "Prefix ([w]hat/[s]ummary/[j]a/[e]n/[p]roof/[P]roof/[r]ewrite/{R]ewrite/[d]oc): "))
+	      "Prefix ([w]hat/[s]ummary/[j]a/[e]n/[p]roof/[P]roof/[r]eview/{R]ewrite/[d]oc): "))
 	 (elem (assoc ch chatgpt-prefix-alist))
 	 (prefix (cdr elem)))
     (if prefix
@@ -215,7 +221,10 @@
   (interactive)
   (let* ((save-silently t)
 	 (base (format-time-string "%Y%m%d-%H%M%S"))
-	 (file (format "~/var/log/chatgpt/%s-%s" chatgpt-engine base)))
+	 (file (format "%s/%s-%s" chatgpt-log-path chatgpt-engine base)))
+    (unless (file-directory-p chatgpt-log-path)
+      (make-directory chatgpt-log-path t)
+      )
     (with-temp-buffer
       (insert "\n")
       (chatgpt-insert-reply '(4))

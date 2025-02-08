@@ -53,3 +53,5 @@
 (setq chatgpt-send-query-function 'llama--send-query)
 (setq chatgpt-start-recv-process-function 'llama--start-recv-process)
 (setq chatgpt-extract-reply-function 'llama--extract-reply)
+
+(provide 'llama)
